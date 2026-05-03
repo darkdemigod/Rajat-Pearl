@@ -319,14 +319,25 @@ export default function ChartCalculator() {
                 <CardTitle className="text-base">Vimsottari Dasha</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {(chartResult.vimsottariDasha || []).map((d: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-border/50 last:border-0">
-                      <span className={i === 0 ? "font-semibold text-primary" : "text-foreground"}>
-                        {i === 0 && <span className="text-xs mr-1 text-primary">▶</span>}
-                        {d.planet} Dasha
-                      </span>
-                      <span className="text-muted-foreground text-xs">{d.years} years</span>
+                    <div
+                      key={i}
+                      data-testid={`dasha-row-${d.planet}`}
+                      className={`rounded px-2 py-1.5 text-sm ${i === 0 ? "bg-primary/10 border border-primary/30" : "border border-transparent"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={i === 0 ? "font-semibold text-primary" : "text-foreground"}>
+                          {i === 0 && <span className="text-xs mr-1">▶</span>}
+                          {d.planet} Dasha
+                        </span>
+                        <span className="text-muted-foreground text-xs font-mono">{d.years}y</span>
+                      </div>
+                      {d.startDate && (
+                        <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                          {d.startDate} → {d.endDate}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
