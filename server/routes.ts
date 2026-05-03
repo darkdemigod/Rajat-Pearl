@@ -136,6 +136,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.status(201).json(rule);
   });
 
+  app.post("/api/rules/bulk", async (req, res) => {
+    const arr = req.body;
+    if (!Array.isArray(arr)) return res.status(400).json({ message: "Expected an array" });
+    const results: any[] = [];
+    const errors: any[] = [];
+    for (const item of arr) {
+      const parsed = insertRuleSchema.safeParse(item);
+      if (parsed.success) {
+        const rule = await storage.createRule(parsed.data);
+        results.push(rule);
+      } else {
+        errors.push({ item: item.name, errors: parsed.error.errors });
+      }
+    }
+    res.status(201).json({ inserted: results.length, failed: errors.length, errors: errors.slice(0, 5) });
+  });
+
   app.put("/api/rules/:id", async (req, res) => {
     const rule = await storage.updateRule(req.params.id, req.body);
     if (!rule) return res.status(404).json({ message: "Not found" });

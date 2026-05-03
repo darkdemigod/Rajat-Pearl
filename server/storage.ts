@@ -8,6 +8,8 @@ import type {
   Interpretation, InsertInterpretation,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -60,6 +62,23 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this._seedDemoData();
+    this._loadBphsSeed();
+  }
+
+  private _loadBphsSeed() {
+    const seedPath = join(process.cwd(), "server", "bphs_rules_seed.json");
+    if (!existsSync(seedPath)) return;
+    try {
+      const raw = readFileSync(seedPath, "utf-8");
+      const rules: InsertRule[] = JSON.parse(raw);
+      for (const rule of rules) {
+        const id = randomUUID();
+        this.rulesMap.set(id, { ...rule, id, bookId: rule.bookId ?? null, chapter: rule.chapter ?? null, createdAt: new Date() });
+      }
+      console.log(`[storage] Loaded ${rules.length} BPHS rules from seed file`);
+    } catch (e) {
+      console.error("[storage] Failed to load BPHS seed:", e);
+    }
   }
 
   private _seedDemoData() {
