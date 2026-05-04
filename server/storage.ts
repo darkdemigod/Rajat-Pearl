@@ -73,7 +73,7 @@ export class MemStorage implements IStorage {
       const rules: InsertRule[] = JSON.parse(raw);
       for (const rule of rules) {
         const id = randomUUID();
-        this.rulesMap.set(id, { ...rule, id, bookId: rule.bookId ?? null, chapter: rule.chapter ?? null, createdAt: new Date() });
+        this.rulesMap.set(id, { ...rule, id, bookId: rule.bookId ?? null, chapter: rule.chapter ?? null, confidence: rule.confidence ?? 0.5, createdAt: new Date() });
       }
       console.log(`[storage] Loaded ${rules.length} BPHS rules from seed file`);
     } catch (e) {
@@ -183,6 +183,7 @@ export class MemStorage implements IStorage {
         frequency: 47,
         confidence: 0.73,
         chartsAnalyzed: 64,
+        exampleChartIds: null,
       },
       {
         patternType: "nakshatra_correlation",
@@ -190,6 +191,7 @@ export class MemStorage implements IStorage {
         frequency: 34,
         confidence: 0.68,
         chartsAnalyzed: 50,
+        exampleChartIds: null,
       },
       {
         patternType: "dasha_pattern",
@@ -197,6 +199,7 @@ export class MemStorage implements IStorage {
         frequency: 28,
         confidence: 0.71,
         chartsAnalyzed: 39,
+        exampleChartIds: null,
       },
     ];
 
@@ -225,7 +228,7 @@ export class MemStorage implements IStorage {
   }
   async createBirthDetails(bd: InsertBirthDetails): Promise<BirthDetails> {
     const id = randomUUID();
-    const item: BirthDetails = { ...bd, id, createdAt: new Date() };
+    const item: BirthDetails = { ...bd, id, ayanamsaMode: bd.ayanamsaMode ?? 'LAHIRI', createdAt: new Date() };
     this.birthDetailsMap.set(id, item);
     return item;
   }
@@ -246,7 +249,7 @@ export class MemStorage implements IStorage {
   }
   async createChartData(cd: InsertChartData): Promise<ChartData> {
     const id = randomUUID();
-    const item: ChartData = { ...cd, id, createdAt: new Date() };
+    const item: ChartData = { ...cd, id, panchanga: cd.panchanga ?? null, createdAt: new Date() } as ChartData;
     this.chartDataMap.set(id, item);
     return item;
   }
@@ -262,7 +265,7 @@ export class MemStorage implements IStorage {
   }
   async createRule(rule: InsertRule): Promise<Rule> {
     const id = randomUUID();
-    const item: Rule = { ...rule, id, createdAt: new Date() };
+    const item: Rule = { ...rule, id, bookId: rule.bookId ?? null, chapter: rule.chapter ?? null, confidence: rule.confidence ?? 0.5, createdAt: new Date() };
     this.rulesMap.set(id, item);
     return item;
   }
@@ -304,7 +307,15 @@ export class MemStorage implements IStorage {
   }
   async createLearningPattern(lp: InsertLearningPattern): Promise<LearningPattern> {
     const id = randomUUID();
-    const item: LearningPattern = { ...lp, id, discoveredAt: new Date() };
+    const item: LearningPattern = {
+      ...lp,
+      id,
+      confidence: lp.confidence ?? 0,
+      frequency: lp.frequency ?? 0,
+      chartsAnalyzed: lp.chartsAnalyzed ?? 0,
+      exampleChartIds: lp.exampleChartIds ?? null,
+      discoveredAt: new Date(),
+    };
     this.learningPatternsMap.set(id, item);
     return item;
   }

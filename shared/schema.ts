@@ -368,6 +368,7 @@ export const learningPatterns = pgTable("learning_patterns", {
   frequency: integer("frequency").notNull().default(0),
   confidence: real("confidence").notNull().default(0.0),
   chartsAnalyzed: integer("charts_analyzed").notNull().default(0),
+  exampleChartIds: text("example_chart_ids"),
   discoveredAt: timestamp("discovered_at").defaultNow(),
 });
 

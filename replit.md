@@ -6,107 +6,119 @@ A comprehensive Vedic Astrology web application built with Node.js/Express backe
 
 - **Backend**: Express.js (TypeScript) on port 5000
 - **Frontend**: React + Vite (served via Express in dev)
-- **Calculation Engine**: Python 3.11 (`server/calculate.py`) called via child_process
-- **Storage**: In-memory storage (MemStorage) with demo seed data
+- **Calculation Engine**: Python 3.11 (`server/calculate.py`) using pyswisseph
+- **Storage**: In-memory storage (MemStorage) with 900+ BPHS seed rules
 - **Styling**: Tailwind CSS + Shadcn UI components, warm orange primary theme
+
+## Calculation Engine (server/calculate.py)
+
+Full Swiss Ephemeris-based Vedic astrology engine supporting:
+
+### Varga (Divisional) Charts
+All 16 varga charts with correct BPHS formulas:
+- **D1** Rasi · **D2** Hora · **D3** Drekkana · **D4** Chaturthamsa
+- **D7** Saptamsa · **D9** Navamsa (fixed: `start=(sign×9)%12`) · **D10** Dasamsa
+- **D12** Dwadasamsa · **D16** Shodasamsa · **D20** Vimsamsa · **D24** Chaturvimsamsa
+- **D27** Saptavimsamsa · **D30** Trimsamsa (unequal) · **D40** Khavedamsa
+- **D45** Akshavedamsa · **D60** Shashtiamsa
+
+### Dasha Systems
+- **Vimsottari**: 3 levels (Maha → Antardasha → Pratyantar) with exact dates
+- **Ashtottari**: 108-year cycle, 2 levels with exact dates
+
+### Yoga Detection (15+ yogas)
+Pancha Mahapurusha (Ruchaka/Bhadra/Hamsa/Malavya/Sasa), Gaja Kesari,
+Budha-Aditya, Parivartana, Neecha Bhanga Raja, Raja, Dhana,
+Vipreet Raja, Chandra-Mangal, Kemadruma
+
+### Shadbala (6-fold Planetary Strength)
+Uchcha Bala, Sthana Bala, Dig Bala, Naisargika Bala, Chesta Bala, Drig Bala
++ Ishta/Kashta Phala · Grade: Excellent/Good/Average/Weak
+
+### Basic Ashtakavarga
+Sarvashtakavarga bindu count per sign
+
+### Verified Reference Chart
+3 October 1997, 11:40 AM IST, Jaipur (26.9124°N, 75.7873°E):
+- D1 Asc: Scorpio 25° ✓
+- D9 Asc: Aquarius ✓ (fixed quality-based bug → `(sign×9)%12` formula)
+- Planets: Sun Virgo 16°, Moon Libra 3°, Mars Scorpio 9°(R), Mercury Virgo 8°,
+  Jupiter Cap 18°(R), Venus Scorpio 0°, Saturn Pisces 23°(R), Rahu Leo 24°
+- Yogas: Ruchaka, Gaja Kesari, Budha-Aditya, Parivartana (Ju–Sa), Raja (Ve–Ma)
 
 ## Features
 
-### 1. Chart Calculator (`/chart`)
+### 1. Chart Calculator (`/`)
 - Birth details form (name, date, time, place, lat/lng, timezone, ayanamsa)
-- Divisional charts D1–D60 (16 varga types)
-- South Indian style SVG chart (fixed sign positions)
-- Planet positions table with nakshatra, pada, house, strength
-- Panchanga display (tithi, nakshatra, yoga, karana, vaara, sunrise/sunset)
-- Vimsottari Dasha sequence
+- All 16 varga charts switchable via D1–D60 buttons
+- South Indian SVG chart
+- **Tabs**: South Indian · Planet Table · Yogas · Strengths · Panchanga
+- **Yogas tab**: Detected yogas with type badges, confidence bars, planet tags
+- **Strengths tab**: Shadbala table (all 6 components) + top-3 strength cards
+- **Dasha panel**: Expandable 3-level Vimsottari + Ashtottari toggle
+- Save button (→ library) · Interpret button (→ Interpretations page)
 
 ### 2. Rule Library (`/rules`)
-- CRUD operations for astrological interpretation rules
+- CRUD for astrological interpretation rules
+- 900+ BPHS rules from `server/bphs_rules_seed.json`
 - Categories: yoga, dhasa, prediction, chakra_interpretation, general
-- Search and filter by category
-- Rule detail panel with code expression, confidence bar
-- 6 pre-seeded classical rules (Gaja Kesari Yoga, Dhana Yoga, etc.)
+- Search + filter
 
 ### 3. PDF Toolkit (`/pdf`)
-- Reference book management (add/delete books with chapters)
-- Text upload via drag-and-drop or paste
-- Auto-extract astrological rules from text
-- 2 pre-seeded books (Brihat Parashara Hora Shastra, Jataka Parijata)
+- Add/manage reference books
+- **Upload PDF or .txt** — PDF converted via `pdftotext`, text extracted
+- Rule extraction (up to 200 rules) with keyword scoring and category detection
+- Drag-and-drop or file picker
 
-### 4. Learning Module (`/learning`)
-- Pattern discovery statistics dashboard
-- Pattern type analysis (planetary conjunction, nakshatra correlation, etc.)
-- Confidence scoring and occurrence tracking
-- 3 pre-seeded example patterns
+### 4. Learning Module (`/learn`)
+- Pattern analysis across ALL saved charts (up to 20)
+- Detects yoga occurrences, frequency counts, confidence scores
+- Stores patterns with `exampleChartIds` for traceability
+- Frequency bar charts
 
-### 5. Interpretations (`/interpreter`)
-- Select saved birth charts
-- Choose which rules to apply (select all or individual)
-- Generate interpretation reports via `/api/interpretations/generate`
-- Download report as text file
+### 5. Interpretations (`/interpret`)
+- Select saved chart → auto-calculate + detect yogas + match rules
+- `/api/interpret/:birthDetailsId`: calculates chart, builds keyword set from yogas/planets/signs, scores all rules, returns top 40 matches
+- Rule selection checkboxes → Generate Report
+- Report download
 
 ## API Routes
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/calculate` | Direct chart calculation |
-| POST | `/api/charts/calculate` | Calculate + optionally save chart |
+| POST | `/api/calculate` | Raw chart calculation |
 | GET/POST | `/api/birth-details` | Birth details CRUD |
-| GET/PUT/DELETE | `/api/birth-details/:id` | Single birth detail |
-| GET | `/api/charts/:birthDetailsId` | Charts for birth detail |
-| GET/POST/PUT/DELETE | `/api/rules` | Rules CRUD |
-| GET/POST/DELETE | `/api/books` | Books CRUD |
+| POST | `/api/charts/calculate` | Calculate + optionally store chart |
+| GET | `/api/interpret/:bdId` | Full chart + yoga + rule match |
+| GET/POST | `/api/rules` | Rule library CRUD |
+| GET | `/api/rules/search?q=` | Keyword rule search |
+| GET/POST | `/api/books` | Reference books CRUD |
+| POST | `/api/pdf/upload` | PDF→text upload (pdftotext) |
 | POST | `/api/books/:id/parse-rules` | Extract rules from text |
-| GET/POST | `/api/learning-patterns` | Patterns CRUD |
+| GET/POST | `/api/learning-patterns` | Pattern CRUD |
+| POST | `/api/learning-patterns/analyze` | Analyze all charts for patterns |
 | POST | `/api/interpretations/generate` | Generate interpretation report |
-| GET | `/api/interpretations/chart/:chartId` | Get interpretations for chart |
-
-## Python Calculation Engine
-
-`server/calculate.py` performs Vedic astrological calculations:
-- Julian Day calculation from Gregorian date/time
-- Tropical Sun and Moon positions using standard astronomical formulas
-- Sidereal conversion using Lahiri/KP/Raman ayanamsa
-- Planet positions via seeded pseudo-random generation (approximation)
-- Divisional chart calculations (D1–D150)
-- Panchanga: tithi, nakshatra, yoga, karana, vaara
-- Vimsottari Dasha sequence based on Moon nakshatra
 
 ## Key Files
 
 ```
 server/
-  index.ts          — Express server entry point
-  routes.ts         — All API routes
-  storage.ts        — In-memory storage with seed data
-  calculate.py      — Python astronomical calculation engine
-  pyjhora/          — PyJHora library stubs
+  calculate.py          — Full calculation engine (pyswisseph)
+  routes.ts             — All API routes
+  storage.ts            — In-memory storage with type-safe defaults
+  bphs_rules_seed.json  — 900+ BPHS rules seed data
 
-client/src/
-  App.tsx           — Router + theme provider
-  components/
-    Layout.tsx          — Header navigation + footer
-    SouthIndianChart.tsx — SVG-based South Indian chart
-    PanchangaGrid.tsx    — Panchanga display component
-  pages/
-    ChartCalculator.tsx — Main chart calculation page
-    RuleLibrary.tsx     — Rule CRUD management
-    PDFToolkit.tsx      — Book/text upload + rule extraction
-    LearningModule.tsx  — Pattern discovery dashboard
-    Interpreter.tsx     — Report generation
+client/src/pages/
+  ChartCalculator.tsx   — Main chart page with all tabs
+  Interpreter.tsx       — Auto chart→rule matching
+  LearningModule.tsx    — Pattern detection
+  PDFToolkit.tsx        — PDF/text import
 
-shared/
-  schema.ts         — Drizzle schema + Zod types for all entities
+shared/schema.ts        — Drizzle schema + Zod types
 ```
 
-## Theme
+## Dependencies
 
-- Primary color: hsl(30 94% 42%) — warm saffron/orange
-- Dark mode support via `.dark` CSS class on `<html>`
-- Sanskrit labels alongside English for cultural authenticity
-- South Indian chart with fixed sign positions (standard Vedic style)
-
-## Running
-
-The `Start application` workflow runs `npm run dev` which starts both Express and Vite on port 5000.
-Python 3.11 must be installed (it is in this environment).
+- `pyswisseph` — Swiss Ephemeris Python bindings
+- `multer` — File upload middleware for PDF
+- `pdftotext` — System binary at `/nix/store/.../bin/pdftotext`

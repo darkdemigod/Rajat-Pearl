@@ -12,51 +12,52 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { LearningPattern, Rule } from "@shared/schema";
-import { Brain, Trash2, TrendingUp, BarChart2, Lightbulb, RefreshCw, BookOpen } from "lucide-react";
+import type { LearningPattern } from "@shared/schema";
+import { Brain, Trash2, TrendingUp, BarChart2, Lightbulb, RefreshCw, Sparkles, ChevronRight } from "lucide-react";
 
-const PATTERN_TYPE_LABEL: Record<string, { label: string; color: string }> = {
-  planetary_conjunction: { label: "Planetary Conjunction", color: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400" },
-  nakshatra_correlation: { label: "Nakshatra Correlation", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" },
-  dasha_pattern: { label: "Dasha Pattern", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400" },
-  yoga_occurrence: { label: "Yoga Occurrence", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400" },
-  house_lord: { label: "House Lordship", color: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400" },
+const PATTERN_TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
+  planetary_conjunction: { label: "Planetary Conjunction", color: "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400", icon: "⚡" },
+  nakshatra_correlation: { label: "Nakshatra Correlation", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400", icon: "⭐" },
+  dasha_pattern:        { label: "Dasha Pattern",         color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400", icon: "⏳" },
+  yoga_occurrence:      { label: "Yoga Occurrence",       color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400", icon: "🔄" },
+  house_lord:           { label: "House Lordship",        color: "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400", icon: "🏠" },
 };
 
 const INSIGHT_TIPS = [
-  {
-    icon: "🌟",
-    title: "Pattern Recognition",
-    text: "The system automatically identifies recurring planetary configurations across multiple birth charts to surface statistically significant patterns.",
-  },
-  {
-    icon: "📚",
-    title: "Rule Integration",
-    text: "Discovered patterns are cross-referenced with classical rules from your Rule Library to validate and reinforce ancient wisdom.",
-  },
-  {
-    icon: "🔬",
-    title: "Confidence Scoring",
-    text: "Each pattern is assigned a confidence score based on frequency of occurrence and correlation with known astrological principles.",
-  },
-  {
-    icon: "⚡",
-    title: "Live Learning",
-    text: "As more charts are analyzed, the system continuously refines its understanding and discovers new astrological correlations.",
-  },
+  { icon: "🔭", title: "Yoga Detection", text: "Automatically identifies Pancha Mahapurusha yogas, Gaja Kesari, Parivartana, Neecha Bhanga and 15+ classical yoga formations across all saved charts." },
+  { icon: "📊", title: "Frequency Analysis", text: "Counts how often each yoga or planetary pattern appears across your chart collection. High-frequency patterns reveal common astrological signatures." },
+  { icon: "🔗", title: "Rule Matching", text: "Each detected pattern is cross-referenced with the BPHS Rule Library to surface classical shlokas and interpretations that apply." },
+  { icon: "⚡", title: "Live Analysis", text: "Click Analyze Patterns to calculate yogas across all saved charts and discover recurring astrological signatures in your collection." },
 ];
 
 export default function LearningModule() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<{ analyzed: number } | null>(null);
 
-  const { data: patterns = [], isLoading: patternsLoading } = useQuery<LearningPattern[]>({
+  const { data: patterns = [], isLoading } = useQuery<LearningPattern[]>({
     queryKey: ["/api/learning-patterns"],
   });
 
-  const { data: rules = [] } = useQuery<Rule[]>({
-    queryKey: ["/api/rules"],
+  const analyzeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/learning-patterns/analyze", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setLastAnalysis({ analyzed: data.analyzed });
+        qc.invalidateQueries({ queryKey: ["/api/learning-patterns"] });
+        toast({
+          title: "Analysis complete",
+          description: `Analyzed ${data.analyzed} chart${data.analyzed !== 1 ? "s" : ""}, found ${data.patterns.length} pattern${data.patterns.length !== 1 ? "s" : ""}.`,
+        });
+      } else {
+        toast({ title: "Analysis failed", description: data.error, variant: "destructive" });
+      }
+    },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -65,41 +66,29 @@ export default function LearningModule() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Pattern removed" });
       qc.invalidateQueries({ queryKey: ["/api/learning-patterns"] });
+      toast({ title: "Pattern removed" });
       setDeleteId(null);
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const discoverMutation = useMutation({
+  const clearAllMutation = useMutation({
     mutationFn: async () => {
-      const newPattern = {
-        patternType: ["planetary_conjunction", "nakshatra_correlation", "dasha_pattern", "yoga_occurrence", "house_lord"][
-          Math.floor(Math.random() * 5)
-        ],
-        description: `Auto-discovered pattern: ${["Sun-Saturn opposition", "Moon in Punarvasu", "Jupiter Mahadasha peak", "Kuja Dosha variation", "10th lord in 6th"][Math.floor(Math.random() * 5)]} shows correlation with life events in ${Math.floor(Math.random() * 40 + 60)}% of analyzed charts.`,
-        frequency: Math.floor(Math.random() * 30 + 10),
-        confidence: Math.random() * 0.3 + 0.6,
-        chartsAnalyzed: Math.floor(Math.random() * 50 + 20),
-      };
-      const res = await apiRequest("POST", "/api/learning-patterns", newPattern);
-      return res.json();
+      for (const p of patterns) {
+        await apiRequest("DELETE", `/api/learning-patterns/${p.id}`);
+      }
     },
     onSuccess: () => {
-      toast({ title: "New pattern discovered!", description: "Added to your learning patterns." });
       qc.invalidateQueries({ queryKey: ["/api/learning-patterns"] });
+      toast({ title: "All patterns cleared" });
     },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const avgConfidence = patterns.length
-    ? patterns.reduce((s, p) => s + p.confidence, 0) / patterns.length
-    : 0;
-
-  const totalCharts = patterns.length
-    ? Math.max(...patterns.map(p => p.chartsAnalyzed))
-    : 0;
+  const sortedPatterns = [...patterns].sort((a, b) => (b.frequency || 0) - (a.frequency || 0));
+  const topYogas = sortedPatterns.filter(p => p.patternType === "yoga_occurrence").slice(0, 5);
+  const maxFreq = sortedPatterns.reduce((m, p) => Math.max(m, p.frequency || 0), 1);
 
   return (
     <div className="space-y-6">
@@ -107,100 +96,118 @@ export default function LearningModule() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <Brain className="w-6 h-6 text-primary" />
-            Learning Module
+            Pattern Recognition
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            adhyana · अध्यान — Pattern discovery and astrological insights
+            praruup vivechan · प्रारूप विवेचन — Detect yoga patterns across all saved charts
           </p>
         </div>
-        <Button
-          onClick={() => discoverMutation.mutate()}
-          disabled={discoverMutation.isPending}
-          data-testid="button-discover-pattern"
-        >
-          {discoverMutation.isPending ? (
-            <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Discovering…</>
-          ) : (
-            <><Brain className="w-4 h-4 mr-2" />Discover Pattern</>
+        <div className="flex gap-2">
+          {patterns.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => clearAllMutation.mutate()}
+              disabled={clearAllMutation.isPending}
+              data-testid="button-clear-patterns"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear All
+            </Button>
           )}
-        </Button>
+          <Button
+            onClick={() => analyzeMutation.mutate()}
+            disabled={analyzeMutation.isPending}
+            data-testid="button-analyze-patterns"
+          >
+            {analyzeMutation.isPending
+              ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Analyzing Charts…</>
+              : <><Sparkles className="w-4 h-4 mr-2" />Analyze Patterns</>}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Patterns Found", value: patterns.length, icon: TrendingUp, color: "text-violet-500" },
-          { label: "Avg Confidence", value: `${(avgConfidence * 100).toFixed(0)}%`, icon: BarChart2, color: "text-blue-500" },
-          { label: "Charts Analyzed", value: totalCharts, icon: Brain, color: "text-amber-500" },
-          { label: "Rules in Library", value: rules.length, icon: BookOpen, color: "text-emerald-500" },
-        ].map(stat => (
-          <Card key={stat.label} data-testid={`stat-card-${stat.label.toLowerCase().replace(/ /g, "-")}`}>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-muted-foreground">{stat.label}</span>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {lastAnalysis && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="py-3 px-4 flex items-center gap-3">
+            <Brain className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm text-primary">
+              Last analysis: <strong>{lastAnalysis.analyzed}</strong> chart{lastAnalysis.analyzed !== 1 ? "s" : ""} processed, <strong>{patterns.length}</strong> patterns discovered.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">Discovered Patterns</h3>
-          {patternsLoading ? (
-            [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)
-          ) : patterns.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Brain className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No patterns discovered yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Analyze charts to discover patterns</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Pattern List ── */}
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <TrendingUp className="w-4 h-4" />
+              Discovered Patterns ({patterns.length})
+            </h3>
+          </div>
+
+          {isLoading ? (
+            [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)
+          ) : sortedPatterns.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-16 text-center">
+                <Brain className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <p className="font-medium text-foreground">No patterns discovered yet</p>
+                <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
+                  Save multiple birth charts in the Chart Calculator, then click <strong>Analyze Patterns</strong> to detect yoga occurrences.
+                </p>
+                <Button className="mt-4" onClick={() => analyzeMutation.mutate()} disabled={analyzeMutation.isPending} data-testid="button-analyze-empty">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Analyze Now
+                </Button>
               </CardContent>
             </Card>
           ) : (
-            patterns.map(pattern => {
-              const typeInfo = PATTERN_TYPE_LABEL[pattern.patternType] || {
-                label: pattern.patternType.replace(/_/g, " "),
-                color: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400",
-              };
+            sortedPatterns.map(pattern => {
+              const meta = PATTERN_TYPE_META[pattern.patternType] || PATTERN_TYPE_META.yoga_occurrence;
+              const pct = Math.round(((pattern.frequency || 0) / maxFreq) * 100);
+              const conf = Math.round((pattern.confidence || 0) * 100);
               return (
-                <Card key={pattern.id} data-testid={`pattern-card-${pattern.id}`}>
+                <Card key={pattern.id} className="hover:border-primary/30 transition-colors" data-testid={`pattern-card-${pattern.id}`}>
                   <CardContent className="py-4 px-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeInfo.color}`}>
-                            {typeInfo.label}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {pattern.chartsAnalyzed} charts analyzed
-                          </span>
-                        </div>
-                        <p className="text-sm text-foreground mb-3">{pattern.description}</p>
-                        <div className="flex items-center gap-4">
-                          <div className="flex-1 space-y-1">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">Confidence</span>
-                              <span className="font-medium">{(pattern.confidence * 100).toFixed(0)}%</span>
-                            </div>
-                            <Progress value={pattern.confidence * 100} className="h-1.5" />
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <span className="text-lg shrink-0 mt-0.5">{meta.icon}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${meta.color}`}>
+                              {meta.label}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              freq: <strong>{pattern.frequency || 0}</strong> · conf: <strong>{conf}%</strong>
+                            </span>
                           </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-primary">{pattern.frequency}</div>
-                            <div className="text-xs text-muted-foreground">occurrences</div>
-                          </div>
+                          <p className="text-sm text-foreground leading-relaxed">{pattern.description}</p>
+                          {pattern.exampleChartIds && (
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                              Charts: {pattern.exampleChartIds}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
                         onClick={() => setDeleteId(pattern.id)}
                         data-testid={`button-delete-pattern-${pattern.id}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>Relative frequency</span>
+                        <span>{pct}%</span>
+                      </div>
+                      <Progress value={pct} className="h-1.5" />
                     </div>
                   </CardContent>
                 </Card>
@@ -209,66 +216,67 @@ export default function LearningModule() {
           )}
         </div>
 
+        {/* ── Right Panel ── */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-muted-foreground">How It Works</h3>
-          {INSIGHT_TIPS.map((tip, i) => (
-            <Card key={i}>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex gap-3">
-                  <span className="text-xl shrink-0">{tip.icon}</span>
-                  <div>
-                    <div className="text-sm font-medium text-foreground mb-1">{tip.title}</div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{tip.text}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {patterns.length > 0 && (
+          {/* Top yogas summary */}
+          {topYogas.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-500" />
-                  Pattern Distribution
+                <CardTitle className="text-sm flex items-center gap-1.5">
+                  <BarChart2 className="w-4 h-4 text-primary" />
+                  Top Yoga Occurrences
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {Object.entries(
-                  patterns.reduce((acc, p) => {
-                    acc[p.patternType] = (acc[p.patternType] || 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)
-                ).map(([type, count]) => {
-                  const info = PATTERN_TYPE_LABEL[type] || { label: type, color: "" };
+              <CardContent className="pt-0 space-y-2">
+                {topYogas.map((p, i) => {
+                  const yogaName = p.description.split(":")[0];
+                  const pct = Math.round(((p.frequency || 0) / maxFreq) * 100);
                   return (
-                    <div key={type} className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{info.label || type.replace(/_/g, " ")}</span>
-                      <Badge variant="secondary" className="text-xs">{count}</Badge>
+                    <div key={p.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-foreground font-medium truncate">{yogaName}</span>
+                        <span className="text-muted-foreground ml-2 shrink-0">{p.frequency}×</span>
+                      </div>
+                      <Progress value={pct} className="h-1.5" />
                     </div>
                   );
                 })}
               </CardContent>
             </Card>
           )}
+
+          {/* Info tips */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-1.5">
+                <Lightbulb className="w-4 h-4 text-primary" />
+                How It Works
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-3">
+              {INSIGHT_TIPS.map((tip, i) => (
+                <div key={i} className="flex gap-3">
+                  <span className="text-base shrink-0 mt-0.5">{tip.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{tip.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{tip.text}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Pattern?</AlertDialogTitle>
-            <AlertDialogDescription>This pattern will be permanently removed.</AlertDialogDescription>
+            <AlertDialogTitle>Delete Pattern</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this discovered pattern.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-pattern"
-            >
-              Remove
-            </AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteId && deleteMutation.mutate(deleteId)}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
