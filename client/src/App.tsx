@@ -10,6 +10,7 @@ import RuleLibrary from "@/pages/RuleLibrary";
 import PDFToolkit from "@/pages/PDFToolkit";
 import LearningModule from "@/pages/LearningModule";
 import Interpreter from "@/pages/Interpreter";
+import LifeDiscussion from "@/pages/LifeDiscussion";
 import NotFound from "@/pages/not-found";
 
 const themeCtx = createContext<{
@@ -50,6 +51,7 @@ function Router() {
         <Route path="/pdf" component={PDFToolkit} />
         <Route path="/learning" component={LearningModule} />
         <Route path="/interpreter" component={Interpreter} />
+        <Route path="/discuss" component={LifeDiscussion} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useTheme } from "@/App";
 import { Button } from "@/components/ui/button";
-import { Star, BookOpen, FileText, Brain, MessageSquare, Moon, Sun, Menu, X } from "lucide-react";
+import { Star, BookOpen, FileText, Brain, MessageSquare, Layers, Moon, Sun, Menu, X } from "lucide-react";
 import { useState } from "react";
 
 const NAV_TABS = [
@@ -10,6 +10,7 @@ const NAV_TABS = [
   { path: "/pdf", label: "PDF Toolkit", icon: FileText, sanskrit: "Grantha Sangrah" },
   { path: "/learning", label: "Learning Module", icon: Brain, sanskrit: "Adhyana" },
   { path: "/interpreter", label: "Interpretations", icon: MessageSquare, sanskrit: "Vivaran" },
+  { path: "/discuss", label: "Life Discussion", icon: Layers, sanskrit: "Jivana Charcha" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

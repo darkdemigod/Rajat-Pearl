@@ -497,6 +497,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── PVR Life Discussion endpoint ────────────────────────────────────────
+  app.get("/api/discuss/:birthDetailsId", async (req, res) => {
+    try {
+      const bd = await storage.getBirthDetails(req.params.birthDetailsId);
+      if (!bd) return res.status(404).json({ success: false, error: "Birth details not found" });
+
+      // First calculate chart
+      const chartData = await callPython({ ...bd, chartType: "D1" });
+
+      // Then run PVR analysis on that chart data
+      const pvrData = await new Promise<any>((resolve, reject) => {
+        const scriptPath = path.join(process.cwd(), "server", "pvr_rules.py");
+        const proc = spawn("python3", [scriptPath], { timeout: 60000 });
+        let stdout = "", stderr = "";
+        proc.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
+        proc.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+        proc.on("close", (code) => {
+          try {
+            const result = JSON.parse(stdout);
+            if (result.success) resolve(result.data);
+            else reject(new Error(result.error || "PVR analysis failed"));
+          } catch {
+            reject(new Error(`PVR error (exit ${code}): ${stderr || stdout}`));
+          }
+        });
+        proc.on("error", reject);
+        proc.stdin.write(JSON.stringify({ chart_data: chartData }));
+        proc.stdin.end();
+      });
+
+      res.json({
+        success: true,
+        birthDetails: bd,
+        chartData,
+        domains: pvrData,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   app.get("/api/interpretations/chart/:chartId", async (req, res) => {
     res.json(await storage.getInterpretationsByChart(req.params.chartId));
   });
